@@ -1,15 +1,20 @@
 import * as THREE from "./node_modules/three/build/three.module.js";
 
 const _canvas = document.getElementById("canvas");
-const _gl = _canvas.getContext("2d");
+const _gl = _canvas.getContext("webgl2");
+
+const renderer = new THREE.WebGLRenderer({ context: _gl });
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera();
 
 // Threshold for pixel density
 const maxDepth = 6;
 
 function divideCanvas(canvas, depth = 0, left = 0, top = 0) {
   const pixelDensity = getPixelDensity(canvas);
-  // console.log("Pixel Density: ", pixelDensity);
-
+  console.log(pixelDensity);
   let threshold = calculateThreshold(pixelDensity, depth);
 
   console.log(threshold);
@@ -46,77 +51,109 @@ function divideCanvas(canvas, depth = 0, left = 0, top = 0) {
     ];
 
     const renderer = new THREE.WebGLRenderer({
-      context: canvas.getContext("webgl"),
+      context: canvas.getContext("webgl2"),
     });
 
+    const _ogScissor = new THREE.Vector4();
+    const _ogViewport = new THREE.Vector4();
+
+    const ogRenderTarget = renderer.getRenderTarget();
+    const ogAutoClear = renderer.autoClear;
+    const ogScissorTest = renderer.getScissorTest();
+    renderer.getScissor(_ogScissor);
+    renderer.getViewport(_ogViewport);
+
     scissors.forEach((scissor) => {
+      renderer.setScissorTest(true);
       renderer.setScissor(
         scissor.left,
         canvas.height - scissor.top - scissor.height,
         scissor.width,
         scissor.height
       );
-      renderer.setScissorTest(true);
 
-      const subCanvas = canvas.cloneNode(false);
+      renderer.setViewport(
+        scissor.left,
+        canvas.height - scissor.top - scissor.height,
+        scissor.width,
+        scissor.height
+      );
+
+      const subCanvas = canvas.cloneNode(true);
       subCanvas.width = scissor.width;
       subCanvas.height = scissor.height;
-      const subCtx = subCanvas.getContext("2d");
 
-      subCtx.drawImage(
-        canvas,
-        scissor.left - left,
-        scissor.top - top,
-        scissor.width,
-        scissor.height,
-        0,
-        0,
-        scissor.width,
-        scissor.height
-      );
-      _gl.drawImage(
-        subCanvas,
-        scissor.left,
-        scissor.top,
-        scissor.width,
-        scissor.height
-      );
+      const subCtx = subCanvas.getContext("webgl2");
 
-      _gl.beginPath();
-      _gl.strokeStyle = "yellow";
-      _gl.rect(scissor.left, scissor.top, scissor.width, scissor.height);
-      _gl.stroke();
+      renderer.
+
+      // subCtx.drawImage(
+      //   canvas,
+      //   scissor.left - left,
+      //   scissor.top - top,
+      //   scissor.width,
+      //   scissor.height,
+      //   0,
+      //   0,
+      //   scissor.width,
+      //   scissor.height
+      // );
+      // _gl.drawImage(
+      //   subCanvas,
+      //   scissor.left,
+      //   scissor.top,
+      //   scissor.width,
+      //   scissor.height
+      // );
+
+      // _gl.beginPath();
+      // _gl.strokeStyle = "yellow";
+      // _gl.rect(scissor.left, scissor.top, scissor.width, scissor.height);
+      // _gl.stroke();
 
       // console.log(subCanvas.width, subCanvas.height);
-      renderer.setScissorTest(false);
-      divideCanvas(subCanvas, depth + 1, scissor.left, scissor.top);
+      //renderer.setScissorTest(false);
+
+      // renderer.setViewport(_ogViewport);
+      // renderer.setScissor(_ogScissor);
+      // renderer.setScissorTest(ogScissorTest);
+      // renderer.setRenderTarget(ogRenderTarget);
+      // renderer.autoClear = ogAutoClear;
+
+      //divideCanvas(subCanvas, depth + 1, scissor.left, scissor.top);
     });
   }
 }
 
 function getPixelDensity(canvas) {
-  const ctx = canvas.getContext("2d");
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const pixels = imageData.data;
+  console.log(_gl);
 
-  let count = 0;
+  const pixels = new Uint8Array(_canvas.width * _canvas.height * 4);
+  _gl.readPixels(
+    0,
+    0,
+    _canvas.width,
+    _canvas.height,
+    _gl.RGBA,
+    _gl.UNSIGNED_BYTE,
+    pixels
+  );
 
+  // Calculate the pixel density
+  let numPixels = 0;
   for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i];
-    const g = pixels[i + 1];
-    const b = pixels[i + 2];
-    const a = pixels[i + 3];
-
-    // Check if the pixel is not transparent and not white
-    if (a !== 0 && !(r >= 10 && g >= 10 && b >= 10)) {
-      count++;
+    if (
+      pixels[i] != 0 ||
+      pixels[i + 1] >= 10 ||
+      pixels[i + 2] >= 10 ||
+      pixels[i + 3] >= 10
+    ) {
+      numPixels++;
     }
   }
 
-  // Calculate the pixel density as a percentage
-  const totalPixels = canvas.width * canvas.height;
-  const pixelDensity = count / totalPixels;
-
+  const pixelDensity = numPixels / (canvas.width * canvas.height);
+  console.log(pixelDensity);
   return pixelDensity;
 }
 
@@ -160,4 +197,20 @@ function calculateThreshold(pixelDensity, depth) {
   return threshold <= 0.01 ? 0.01 : threshold;
 }
 
-await loadBackground();
+// await loadBackground();
+
+function setup3D() {
+  // Get the WebGL context
+
+  camera.position.set(0, 0, 10);
+  const geometry = new THREE.BoxGeometry(2, 2, 2);
+  const material = new THREE.MeshBasicMaterial();
+  material.color = new THREE.Color("green");
+  const cube = new THREE.Mesh(geometry, material);
+  scene.add(cube);
+
+  renderer.render(scene, camera);
+
+  divideCanvas(_canvas);
+}
+setup3D();
