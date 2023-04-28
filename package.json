@@ -1,0 +1,16 @@
+{
+  "name": "dynamic_tiles",
+  "version": "1.0.0",
+  "description": "",
+  "main": "loop.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": ""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.151.3",
+    "webpack": "^5.80.0"
+  }
+}
